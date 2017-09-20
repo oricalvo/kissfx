@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "raw-loader": "^0.5.1",
+    "ts-loader": "^2.3.7",
+    "typescript": "^2.5.2",
+    "webpack": "^3.6.0"
+  }
+}
