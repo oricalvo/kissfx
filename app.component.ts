@@ -1,17 +1,16 @@
 import {detectChanges} from "./bootstrap";
 import template from "./app.component.html";
-import {ComponentMetadata} from "./annotations";
+import {Component, ComponentMetadata} from "./annotations";
 
+@Component({
+    selector: "app-root",
+    template: template,
+})
 export class AppComponent {
-    static metadata: ComponentMetadata = {
-        tagName: "app-root",
-        template: template,
-    };
-
     counter: number = 12;
 
     constructor() {
-        console.log("AppComponent");
+        console.log("AppComponent.ctor");
     }
 
     run() {

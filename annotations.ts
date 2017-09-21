@@ -1,10 +1,12 @@
+/// <reference path="./node_modules/reflect-metadata/Reflect.d.ts" />
+
 export interface ComponentMetadata {
-    tagName: string;
+    selector: string;
     template: string;
 };
 
 export function Component(metadata: ComponentMetadata) {
     return function(target) {
-        Reflect.
+        target.metadata = metadata;
     }
 }

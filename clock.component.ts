@@ -3,19 +3,19 @@ import template from "./clock.component.html";
 import {Component, ComponentMetadata} from "./annotations";
 
 @Component({
-    tagName: "app-clock",
+    selector: "app-clock",
     template: template,
 })
 export class ClockComponent {
     static metadata: ComponentMetadata = {
-        tagName: "app-clock",
+        selector: "app-clock",
         template: template,
     };
 
     time: Date;
 
     constructor() {
-        console.log("ClockComponent");
+        console.log("ClockComponent.ctor");
 
         this.time = new Date();
 

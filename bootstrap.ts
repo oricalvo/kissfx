@@ -64,8 +64,6 @@ function tryHandleInterpolationBinding(childNode: Node, comp: any) {
 }
 
 function compileText(node: Node, compiledComponent: CompiledComponent) {
-    console.log("compileText", node.nodeValue);
-
     const text = node.nodeValue;
 
     if(text[0]=="{" && text[1]=="{" && text[text.length-1]=="}" && text[text.length-2]=="}") {
@@ -146,7 +144,6 @@ function getElementId(element: Element) {
     let id = element.getAttribute("kissfx-id");
     if(!id) {
         id = generateId();
-        console.log("attching id", id);
         element.setAttribute("kissfx-id", id);
     }
 
@@ -154,21 +151,15 @@ function getElementId(element: Element) {
 }
 
 function compileExpr(expr: string) {
-    console.log("compileExpr", expr);
-
     const f = new Function("return this." + expr);
     return f;
 }
 
 function addInstruction(instruction: LinkInstruction, instructions: LinkInstruction[]) {
-    console.log("addInstruction", instruction, instructions);
-
     instructions.push(instruction);
 }
 
 function compileAttrAsEventBinding(element: Element, attr: Attr, compiledComponent: CompiledComponent): LinkInstruction {
-    console.log("compileAttrAsEventBinding", attr);
-
     const name = attr.name;
     if(name[0]=="(" && name[name.length-1]==")") {
         const elementId = getElementId(element);
@@ -182,8 +173,6 @@ function compileAttrAsEventBinding(element: Element, attr: Attr, compiledCompone
 }
 
 function compileAttr(element: Element, attr: Attr, compiledComponent: CompiledComponent): LinkInstruction {
-    console.log("compileAttr", attr);
-
     const instruction: LinkInstruction = compileAttrAsEventBinding(element, attr, compiledComponent);
     if(instruction) {
         return instruction;
@@ -193,8 +182,6 @@ function compileAttr(element: Element, attr: Attr, compiledComponent: CompiledCo
 }
 
 function compileElement(element: Element, parent: CompiledComponent) {
-    console.log("compileElement", element.tagName, element);
-
     const tagName = element.tagName.toLowerCase();
 
     if(parent.module.componentWithTagNameExists(tagName)) {
@@ -217,8 +204,6 @@ function compileElement(element: Element, parent: CompiledComponent) {
 }
 
 function compileNode(node: Node, compiledComponent: CompiledComponent) {
-    console.log("compileNode", node);
-
     if(node.nodeType == Node.ELEMENT_NODE) {
         const element: Element = node as Element;
 
@@ -230,7 +215,7 @@ function compileNode(node: Node, compiledComponent: CompiledComponent) {
 }
 
 function linkComponent(element: Element, compiledComponent: CompiledComponent) {
-    console.log("linkComponent", element, compiledComponent);
+    console.log("linkComponent", element, compiledComponent.compCtor.name);
 
     const comp = new compiledComponent.compCtor();
     element.innerHTML = compiledComponent.compiledDocument.body.innerHTML;
@@ -248,13 +233,11 @@ export class CompiledModule {
         this.componentCtorByTagName = new Map<string, ComponentCtor>();
 
         for(const compCtor of this.moduleMetadata.components) {
-            this.componentCtorByTagName.set(compCtor.metadata.tagName, compCtor);
+            this.componentCtorByTagName.set(compCtor.metadata.selector, compCtor);
         }
     }
 
     addComponent(compiledComp: CompiledComponent) {
-        console.log("addComponent", compiledComp);
-
         this.compiledComponentByCtor.set(compiledComp.compCtor, compiledComp);
 
         compiledComp.onAdded(this);
@@ -307,12 +290,10 @@ export class CompiledComponent {
     }
 
     get tagName(): string {
-        return this.compCtor.metadata.tagName;
+        return this.compCtor.metadata.selector;
     }
 
     addInstruction(instruction: LinkInstruction) {
-        console.log("addInstruction", instruction);
-
         this.instructions.push(instruction);
     }
 
@@ -322,8 +303,6 @@ export class CompiledComponent {
 }
 
 function compileElementContent(element: Element, compiledComponent: CompiledComponent) {
-    console.log("compileElementContent", element);
-
     for(let i=0; i<element.childNodes.length; i++) {
         const childNode = element.childNodes[i];
 
@@ -332,7 +311,7 @@ function compileElementContent(element: Element, compiledComponent: CompiledComp
 }
 
 function compileComponent(compCtor: ComponentCtor, compilationState: CompiledModule) {
-    console.log("compileComponent", compCtor);
+    console.log("compileComponent", compCtor.name);
 
     const compiledComp: CompiledComponent = new CompiledComponent(compCtor);
     compilationState.addComponent(compiledComp);
@@ -341,7 +320,7 @@ function compileComponent(compCtor: ComponentCtor, compilationState: CompiledMod
 }
 
 function compileModule(moduleCtor: ModuleCtor): CompiledModule {
-    console.log("compileModule", moduleCtor);
+    console.log("compileModule", moduleCtor.name);
 
     const moduleMetadata: ModuleMetadata = moduleCtor.metadata;
     if(!moduleMetadata) {
@@ -368,7 +347,7 @@ export function bootstrap(element: Element, moduleCtor: ModuleCtor) {
     const compCtor = moduleMetadata.bootstrap;
     const compiledComponent = compilationState.getCompiledComponentByCtor(compCtor);
 
-    const compElement = element.querySelector(compCtor.metadata.tagName);
+    const compElement = element.querySelector(compCtor.metadata.selector);
     if(!compElement) {
         throw new Error("Bootstrap element was not found");
     }
