@@ -3,7 +3,9 @@
     "module": "es2015",
     "target": "es5",
     "sourceMap": true,
-    "outDir": "ts-out"
+    "outDir": "ts-out",
+    "lib": ["es2015", "dom"],
+    "experimentalDecorators": true
   },
   "exclude": [
     "node_modules"

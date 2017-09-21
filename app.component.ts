@@ -1,9 +1,10 @@
-import {ComponentMetadata, detectChanges} from "./bootstrap";
+import {detectChanges} from "./bootstrap";
 import template from "./app.component.html";
+import {ComponentMetadata} from "./annotations";
 
 export class AppComponent {
     static metadata: ComponentMetadata = {
-        tag: "app-root",
+        tagName: "app-root",
         template: template,
     };
 

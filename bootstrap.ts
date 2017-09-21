@@ -1,37 +1,18 @@
-export interface ComponentMetadata {
-    tag: string;
-    template: string;
+import {ComponentMetadata} from "./annotations";
+
+export interface ModuleMetadata {
+    components: ComponentCtor[];
+    bootstrap: ComponentCtor;
 };
 
 export interface ComponentCtor {
     new (...args): any;
+    metadata: ComponentMetadata;
 }
 
-export interface EventAttribute {
-    event: string;
-    expr: string;
-}
-
-function parseEventAttribute(attr: Attr): EventAttribute {
-    const name = attr.name;
-    if(name[0]=="(" && name[name.length-1]==")") {
-        return {
-            event: name.substring(1, name.length-1),
-            expr: attr.value
-        };
-    }
-}
-
-function tryHandleEventAttribute(node: Node, attr: Attr, comp: any): boolean {
-    const eventAttr = parseEventAttribute(attr);
-    if(!eventAttr) {
-        return false;
-    }
-
-    const f = new Function("return this." + eventAttr.expr);
-    node.addEventListener(eventAttr.event, f.bind(comp));
-
-    return true;
+export interface ModuleCtor {
+    metadata: ModuleMetadata;
+    new (...args): any;
 }
 
 const watchers: Watcher[] = [];
@@ -82,48 +63,22 @@ function tryHandleInterpolationBinding(childNode: Node, comp: any) {
     }
 }
 
-function compileText(childNode: Node, instructions: LinkInstruction[]) {
-    const text = childNode.nodeValue;
+function compileText(node: Node, compiledComponent: CompiledComponent) {
+    console.log("compileText", node.nodeValue);
+
+    const text = node.nodeValue;
 
     if(text[0]=="{" && text[1]=="{" && text[text.length-1]=="}" && text[text.length-2]=="}") {
         const expr = text.substring(2, text.length-2);
 
-        const instruction = new InterpolationLinkInstruction(getElementId(childNode.parentElement), expr);
-        addInstruction(instruction, instructions);
+        const instruction = new InterpolationLinkInstruction(getElementId(node.parentElement), expr);
+        compiledComponent.addInstruction(instruction);
         return instruction;
-        // watch(f, function(newValue) {
-        //     childNode.nodeValue = newValue;
-        // });
-    }
-}
-
-function linkElementToComponent(element, comp) {
-    for(let i=0; i<element.childNodes.length; i++) {
-        const childNode = element.childNodes[i];
-
-        if(childNode.nodeType == Node.ELEMENT_NODE) {
-            console.log(childNode);
-
-            for(let i=0; i<childNode.attributes.length; i++) {
-                const attr = childNode.attributes[i];
-
-                if(tryHandleEventAttribute(childNode, attr, comp)) {
-                    continue;
-                }
-            }
-
-            linkElementToComponent(childNode, comp);
-        }
-        else if(childNode.nodeType == Node.TEXT_NODE) {
-            tryHandleInterpolationBinding(childNode, comp);
-
-            console.log("Text: " + childNode.nodeValue);
-        }
     }
 }
 
 abstract class LinkInstruction {
-    abstract link(parent: Element, comp);
+    abstract link(parent: Element, comp, compiledModule: CompiledModule);
 }
 
 class EventBindingLinkInstruction extends LinkInstruction {
@@ -131,7 +86,7 @@ class EventBindingLinkInstruction extends LinkInstruction {
         super();
     }
 
-    link(parent: Element, comp) {
+    link(parent: Element, comp, compiledModule: CompiledModule) {
         const element: Element = parent.querySelector("[kissfx-id='" + this.elementId + "']");
         if(!element) {
             throw new Error("Can't find linked element");
@@ -150,7 +105,7 @@ class InterpolationLinkInstruction extends LinkInstruction {
         this.func = new Function("return this." + expr);
     }
 
-    link(parent: Element, comp) {
+    link(parent: Element, comp, compiledModule: CompiledModule) {
         const element: Element = parent.querySelector("[kissfx-id='" + this.elementId + "']");
         if(!element) {
             throw new Error("Can't find linked element");
@@ -164,6 +119,23 @@ class InterpolationLinkInstruction extends LinkInstruction {
     }
 }
 
+class CreateComponentLinkInstruction extends LinkInstruction {
+    constructor(public elementId: string, public tagName: string) {
+        super();
+    }
+
+    link(parent: Element, comp, compiledModule: CompiledModule) {
+        const element: Element = parent.querySelector("[kissfx-id='" + this.elementId + "']");
+        if(!element) {
+            throw new Error("Can't find linked element");
+        }
+
+        const compiledComponent = compiledModule.getCompiledComponentByTagName(this.tagName);
+
+        linkComponent(element, compiledComponent);
+    }
+}
+
 let nextId = 1;
 
 function generateId(): string {
@@ -174,6 +146,7 @@ function getElementId(element: Element) {
     let id = element.getAttribute("kissfx-id");
     if(!id) {
         id = generateId();
+        console.log("attching id", id);
         element.setAttribute("kissfx-id", id);
     }
 
@@ -181,6 +154,8 @@ function getElementId(element: Element) {
 }
 
 function compileExpr(expr: string) {
+    console.log("compileExpr", expr);
+
     const f = new Function("return this." + expr);
     return f;
 }
@@ -191,86 +166,212 @@ function addInstruction(instruction: LinkInstruction, instructions: LinkInstruct
     instructions.push(instruction);
 }
 
-function compileAttrAsEventBinding(element: Element, attr: Attr, instructions: LinkInstruction[]): LinkInstruction {
+function compileAttrAsEventBinding(element: Element, attr: Attr, compiledComponent: CompiledComponent): LinkInstruction {
+    console.log("compileAttrAsEventBinding", attr);
+
     const name = attr.name;
     if(name[0]=="(" && name[name.length-1]==")") {
         const elementId = getElementId(element);
         const eventName = name.substring(1, name.length-1);
         const instruction = new EventBindingLinkInstruction(elementId, eventName, compileExpr(attr.value))
-        addInstruction(instruction, instructions);
+        compiledComponent.addInstruction(instruction);
         return instruction;
     }
 
     return null;
 }
 
-function compileAttr(element: Element, attr: Attr, instructions: LinkInstruction[]): LinkInstruction {
-    console.log("compileAttr", element, attr);
+function compileAttr(element: Element, attr: Attr, compiledComponent: CompiledComponent): LinkInstruction {
+    console.log("compileAttr", attr);
 
-    const instruction: LinkInstruction = compileAttrAsEventBinding(element, attr, instructions);
+    const instruction: LinkInstruction = compileAttrAsEventBinding(element, attr, compiledComponent);
     if(instruction) {
         return instruction;
     }
 
     return null;
-
 }
 
-function compileElement(element: Element, instructions: LinkInstruction[]) {
-    console.log("compileElement", element);
+function compileElement(element: Element, parent: CompiledComponent) {
+    console.log("compileElement", element.tagName, element);
 
-    for(let i=0; i<element.attributes.length; i++) {
-        const attr = element.attributes[i];
+    const tagName = element.tagName.toLowerCase();
 
-        compileAttr(element, attr, instructions);
+    if(parent.module.componentWithTagNameExists(tagName)) {
+        const instruction = new CreateComponentLinkInstruction(getElementId(element), tagName)
+        parent.addInstruction(instruction);
     }
+    else {
+        for (let i = 0; i < element.attributes.length; i++) {
+            const attr = element.attributes[i];
 
-    for(let i=0; i<element.childNodes.length; i++) {
-        const childNode = element.childNodes[i];
+            compileAttr(element, attr, parent);
+        }
 
-        compileNode(childNode, instructions);
+        for (let i = 0; i < element.childNodes.length; i++) {
+            const childNode = element.childNodes[i];
+
+            compileNode(childNode, parent);
+        }
     }
 }
 
-function compileNode(node: Node, instructions: LinkInstruction[]) {
+function compileNode(node: Node, compiledComponent: CompiledComponent) {
     console.log("compileNode", node);
 
     if(node.nodeType == Node.ELEMENT_NODE) {
         const element: Element = node as Element;
 
-        compileElement(element, instructions);
+        compileElement(element, compiledComponent);
     }
     else if(node.nodeType == Node.TEXT_NODE) {
-        compileText(node, instructions);
+        compileText(node, compiledComponent);
     }
 }
 
-function linkComponent(instructions: LinkInstruction[], element: Element, comp: any) {
-    for(let instruction of instructions) {
-        instruction.link(element, comp);
+function linkComponent(element: Element, compiledComponent: CompiledComponent) {
+    console.log("linkComponent", element, compiledComponent);
+
+    const comp = new compiledComponent.compCtor();
+    element.innerHTML = compiledComponent.compiledDocument.body.innerHTML;
+    for(let instruction of compiledComponent.instructions) {
+        instruction.link(element, comp, compiledComponent.module);
     }
 }
 
-export function bootstrap(element: Element, compCtor: ComponentCtor) {
-    const metadata: ComponentMetadata = compCtor["metadata"];
+export class CompiledModule {
+    compiledComponentByCtor: Map<ComponentCtor, CompiledComponent>;
+    componentCtorByTagName: Map<string, ComponentCtor>;
 
-    const compElement = element.querySelector(metadata.tag);
-    if(compElement) {
-        const instructions: LinkInstruction[] = [];
+    constructor(public moduleMetadata: ModuleMetadata) {
+        this.compiledComponentByCtor = new Map<ComponentCtor, CompiledComponent>();
+        this.componentCtorByTagName = new Map<string, ComponentCtor>();
+
+        for(const compCtor of this.moduleMetadata.components) {
+            this.componentCtorByTagName.set(compCtor.metadata.tagName, compCtor);
+        }
+    }
+
+    addComponent(compiledComp: CompiledComponent) {
+        console.log("addComponent", compiledComp);
+
+        this.compiledComponentByCtor.set(compiledComp.compCtor, compiledComp);
+
+        compiledComp.onAdded(this);
+    }
+
+    getCompiledComponentByCtor(compCtor: ComponentCtor): CompiledComponent {
+        const compiledComponent = this.compiledComponentByCtor.get(compCtor);
+        if(!compiledComponent) {
+            throw new Error("No compiled component was found for ctor: " + compCtor.name);
+        }
+
+        return compiledComponent;
+    }
+
+    getCompiledComponentByTagName(tagName: string): CompiledComponent {
+        const compCtor = this.componentCtorByTagName.get(tagName);
+        if(!compCtor) {
+            throw new Error("Component ctor for tagName: " + tagName + " was not found");
+        }
+
+        return this.getCompiledComponentByCtor(compCtor);
+    }
+
+    findComponentCtorByTagName(tagName: string): ComponentCtor {
+        const compCtor = this.componentCtorByTagName.get(tagName);
+        return compCtor;
+    }
+
+    componentWithTagNameExists(tagName: string): boolean {
+        return !!this.findComponentCtorByTagName(tagName);
+    }
+}
+
+export class CompiledComponent {
+    public module: CompiledModule;
+    public compMetadata: ComponentMetadata;
+    public instructions: LinkInstruction[];
+    public compiledDocument: Document;
+
+    constructor(public compCtor: ComponentCtor) {
+        this.instructions = [];
+
+        this.compMetadata = compCtor.metadata;
+        if(!this.compMetadata) {
+            throw new Error("No component metadata");
+        }
 
         const parser = new DOMParser();
-        const doc = parser.parseFromString(metadata.template, "text/html");
-
-        compileElement(doc.body, instructions);
-
-        const compiledTemplate = doc.body.innerHTML;
-        console.log(compiledTemplate);
-
-        const comp = new compCtor();
-        compElement.innerHTML = compiledTemplate;
-        linkComponent(instructions, compElement, comp);
+        this.compiledDocument = parser.parseFromString(this.compMetadata.template, "text/html");
     }
 
-    //linkElementToComponent(compElement, comp);
+    get tagName(): string {
+        return this.compCtor.metadata.tagName;
+    }
 
+    addInstruction(instruction: LinkInstruction) {
+        console.log("addInstruction", instruction);
+
+        this.instructions.push(instruction);
+    }
+
+    onAdded(compilationState: CompiledModule) {
+        this.module = compilationState;
+    }
+}
+
+function compileElementContent(element: Element, compiledComponent: CompiledComponent) {
+    console.log("compileElementContent", element);
+
+    for(let i=0; i<element.childNodes.length; i++) {
+        const childNode = element.childNodes[i];
+
+        compileNode(childNode, compiledComponent);
+    }
+}
+
+function compileComponent(compCtor: ComponentCtor, compilationState: CompiledModule) {
+    console.log("compileComponent", compCtor);
+
+    const compiledComp: CompiledComponent = new CompiledComponent(compCtor);
+    compilationState.addComponent(compiledComp);
+
+    compileElementContent(compiledComp.compiledDocument.body, compiledComp);
+}
+
+function compileModule(moduleCtor: ModuleCtor): CompiledModule {
+    console.log("compileModule", moduleCtor);
+
+    const moduleMetadata: ModuleMetadata = moduleCtor.metadata;
+    if(!moduleMetadata) {
+        throw new Error("No module metadata");
+    }
+
+    const compilationState = new CompiledModule(moduleMetadata);
+
+    for(const compCtor of moduleMetadata.components) {
+        compileComponent(compCtor, compilationState);
+    }
+
+    return compilationState;
+}
+
+export function bootstrap(element: Element, moduleCtor: ModuleCtor) {
+    const compilationState = compileModule(moduleCtor);
+
+    const moduleMetadata: ModuleMetadata = moduleCtor.metadata;
+    if(!moduleMetadata) {
+        throw new Error("No module metadata");
+    }
+
+    const compCtor = moduleMetadata.bootstrap;
+    const compiledComponent = compilationState.getCompiledComponentByCtor(compCtor);
+
+    const compElement = element.querySelector(compCtor.metadata.tagName);
+    if(!compElement) {
+        throw new Error("Bootstrap element was not found");
+    }
+
+    linkComponent(compElement, compiledComponent);
 }

@@ -1,4 +1,4 @@
 import {bootstrap} from "./bootstrap";
-import {AppComponent} from "./app.component";
+import {AppModule} from "./app.module";
 
-bootstrap(document.querySelector("html"), AppComponent);
+bootstrap(document.querySelector("html"), AppModule);
