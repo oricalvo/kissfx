@@ -1,15 +1,19 @@
-import {detectChanges} from "./bootstrap";
+import {CompiledTemplate, detectChanges, linkTemplate} from "./bootstrap";
 import template from "./app.component.html";
-import {Component, ComponentMetadata} from "./annotations";
+import {Component, ComponentMetadata, ViewChild} from "./annotations";
+import {ComponentBase} from "./component";
 
 @Component({
     selector: "app-root",
     template: template,
 })
-export class AppComponent {
+export class AppComponent extends ComponentBase {
     counter: number = 12;
+    @ViewChild("t1") template: CompiledTemplate;
 
     constructor() {
+        super();
+
         console.log("AppComponent.ctor");
     }
 
@@ -19,5 +23,9 @@ export class AppComponent {
         ++this.counter;
 
         detectChanges();
+    }
+
+    linkTemplate() {
+        linkTemplate(this.element.querySelector("#mark"), this.template);
     }
 }

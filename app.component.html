@@ -4,8 +4,12 @@
 
 <app-clock></app-clock>
 
+<button (click)="linkTemplate()">Link Template</button>
+
 <br/>
 
-<ng-template>
+<ng-template #t1>
     <span>{{counter}}</span>
 </ng-template>
+
+<div id="mark"></div>
