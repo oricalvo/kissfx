@@ -1,12 +1,12 @@
 <h1>Hello</h1>
 <div>{{counter}}</div>
-<button (click)="run()">Click me</button>
+<button (click)="run()">Inc</button>
 
 <app-clock></app-clock>
 
-<button (click)="linkTemplate()">Link Template</button>
-
-<br/>
+<div>
+    <button (click)="linkTemplate()">Link Template</button>
+</div>
 
 <ng-template #t1>
     <span>{{counter}}</span>
