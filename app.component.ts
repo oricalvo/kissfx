@@ -1,6 +1,6 @@
 import {CompiledTemplate, detectChanges, linkTemplate} from "./bootstrap";
 import template from "./app.component.html";
-import {Component, ComponentMetadata, ViewChild} from "./annotations";
+import {Component, ViewChild} from "./annotations";
 import {ComponentBase} from "./component";
 
 @Component({
@@ -26,8 +26,6 @@ export class AppComponent extends ComponentBase {
     }
 
     linkTemplate() {
-        linkTemplate(this.element.querySelector("#mark"), this.template);
-
-        detectChanges();
+        linkTemplate(this, this.element.querySelector("#mark"), this.template);
     }
 }
