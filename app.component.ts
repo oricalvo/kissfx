@@ -27,5 +27,7 @@ export class AppComponent extends ComponentBase {
 
     linkTemplate() {
         linkTemplate(this.element.querySelector("#mark"), this.template);
+
+        detectChanges();
     }
 }
